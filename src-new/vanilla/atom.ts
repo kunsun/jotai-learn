@@ -28,7 +28,7 @@ export type Getter = <Value>(atom: Atom<Value>) => Value
  * 2. 需要传入 atom 的写入参数（Args）
  * 3. 返回写入结果（Result）
  */
-export type Setter = <Value, Args extends unknown[], Result>(
+export type Setter = <Args extends unknown[], Value, Result>(
   atom: WritableAtom<Value, Args, Result>,
   ...args: Args
 ) => Result
