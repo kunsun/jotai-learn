@@ -5,10 +5,42 @@
  * 1. Atom 和 WritableAtom 接口
  * 2. atom() 工厂函数
  * 3. 原始 atom 的默认读写实现
+ * 
+ * 注意：Getter/Setter 定义在此文件内部，避免与 Atom 的循环引用
  */
 
-import type { Getter, Setter, SetStateAction } from './typeUtils'
 import type { Store } from './store'
+
+/**
+ * Getter - 用于读取 atom 的值
+ * 
+ * 关键设计：
+ * 1. 泛型函数，可以读取任何类型的 atom
+ * 2. 调用 get(atom) 时会自动建立依赖关系（Day 2 实现）
+ */
+export type Getter = <Value>(atom: Atom<Value>) => Value
+
+/**
+ * Setter - 用于写入 atom 的值
+ * 
+ * 关键设计：
+ * 1. 只能写入 WritableAtom
+ * 2. 需要传入 atom 的写入参数（Args）
+ * 3. 返回写入结果（Result）
+ */
+export type Setter = <Value, Args extends unknown[], Result>(
+  atom: WritableAtom<Value, Args, Result>,
+  ...args: Args
+) => Result
+
+/**
+ * SetStateAction - 类似 React useState 的更新方式
+ * 
+ * 支持两种方式：
+ * 1. 直接传值：set(atom, 5)
+ * 2. 函数式更新：set(atom, prev => prev + 1)
+ */
+export type SetStateAction<Value> = Value | ((prev: Value) => Value)
 
 /**
  * SetAtom - 用于 WritableAtom 的 read 函数中的 setSelf 类型

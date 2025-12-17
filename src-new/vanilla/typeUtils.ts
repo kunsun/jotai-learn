@@ -1,41 +1,19 @@
 /**
- * Day 1 实现：核心类型定义
+ * Day 1 实现：类型工具
  * 
- * 这个文件定义了 Jotai 的核心类型工具
+ * 这个文件定义了类型提取工具
+ * 
+ * 注意：Getter/Setter/SetStateAction 定义在 atom.ts 中，避免循环引用
  */
 
 import type { Atom, WritableAtom } from './atom'
 
-/**
- * Getter - 用于读取 atom 的值
- * 
- * 关键设计：
- * 1. 泛型函数，可以读取任何类型的 atom
- * 2. 调用 get(atom) 时会自动建立依赖关系（Day 2 实现）
- */
-export type Getter = <Value>(atom: Atom<Value>) => Value
-
-/**
- * Setter - 用于写入 atom 的值
- * 
- * 关键设计：
- * 1. 只能写入 WritableAtom
- * 2. 需要传入 atom 的写入参数（Args）
- * 3. 返回写入结果（Result）
- */
-export type Setter = <Value, Args extends unknown[], Result>(
-  atom: WritableAtom<Value, Args, Result>,
-  ...args: Args
-) => Result
-
-/**
- * SetStateAction - 类似 React useState 的更新方式
- * 
- * 支持两种方式：
- * 1. 直接传值：set(atom, 5)
- * 2. 函数式更新：set(atom, prev => prev + 1)
- */
-export type SetStateAction<Value> = Value | ((prev: Value) => Value)
+// 从 atom.ts 重新导出核心类型，保持 API 兼容
+export type {
+  Getter,
+  Setter,
+  SetStateAction,
+} from './atom'
 
 /**
  * ExtractAtomValue - 从 Atom 类型中提取值类型

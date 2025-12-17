@@ -8,8 +8,8 @@ src-new/
 ├── vanilla.ts              # Vanilla 模块入口
 ├── react.ts                # React 模块入口（Day 5 实现）
 └── vanilla/
-    ├── atom.ts             # ✅ Atom 核心实现
-    ├── typeUtils.ts        # ✅ 类型工具
+    ├── atom.ts             # ✅ Atom 核心 + Getter/Setter 定义
+    ├── typeUtils.ts        # ✅ 类型提取工具（Extract*）
     └── store.ts            # 接口定义（Day 2-4 实现）
 ```
 
@@ -17,28 +17,35 @@ src-new/
 
 ## ✅ Day 1 完成内容
 
-### 1. 类型工具 (`vanilla/typeUtils.ts`)
+### 1. Atom 核心 (`vanilla/atom.ts`)
 
-定义了 5 个核心类型：
+这是核心文件，定义了 **Getter/Setter + Atom 接口 + atom() 函数**。
 
-| 类型 | 作用 | 示例 |
-|------|------|------|
-| `Getter` | 读取 atom 的函数 | `<Value>(atom: Atom<Value>) => Value` |
-| `Setter` | 写入 atom 的函数 | `<V, A, R>(atom: WritableAtom<V, A, R>, ...args: A) => R` |
-| `SetStateAction<T>` | 更新值的方式 | `T \| ((prev: T) => T)` |
-| `ExtractAtomValue` | 提取 atom 的值类型 | `Atom<number>` → `number` |
-| `ExtractAtomArgs` | 提取 write 参数类型 | `WritableAtom<number, [string], void>` → `[string]` |
-| `ExtractAtomResult` | 提取 write 返回类型 | `WritableAtom<number, [string], boolean>` → `boolean` |
+> ❗ **重要设计**：Getter/Setter 定义在 atom.ts 内部，避免与 Atom 的循环引用。
 
-**关键设计**：
-- `Getter` 和 `Setter` 是泛型函数，支持任何 atom 类型
-- `SetStateAction` 模仿 React useState 的 API
+#### 1.1 核心类型定义
 
----
+```typescript
+// Getter - 读取 atom 的值，同时建立依赖关系
+export type Getter = <Value>(atom: Atom<Value>) => Value
 
-### 2. Atom 核心 (`vanilla/atom.ts`)
+// Setter - 写入 atom 的值
+export type Setter = <Value, Args extends unknown[], Result>(
+  atom: WritableAtom<Value, Args, Result>,
+  ...args: Args
+) => Result
 
-#### 2.1 核心接口
+// SetStateAction - 类似 React useState 的更新方式
+export type SetStateAction<Value> = Value | ((prev: Value) => Value)
+```
+
+**为什么定义在 atom.ts 中？**
+- `Getter` 需要用到 `Atom<Value>` 类型
+- `Atom` 的 `read` 函数需要用到 `Getter`
+- 如果分开定义会产生循环引用
+- **解决方案**：都定义在同一文件，单向依赖
+
+#### 1.2 核心接口
 
 ```typescript
 // 只读 atom
@@ -161,6 +168,44 @@ function defaultWrite<Value>(
 **理解**：
 - `defaultRead` 只是简单转发给 `get(this)`，实际逻辑在 store 中
 - `defaultWrite` 实现了和 React useState 一样的 API
+
+---
+
+### 2. 类型提取工具 (`vanilla/typeUtils.ts`)
+
+该文件提供类型提取工具，并重新导出 atom.ts 中的核心类型。
+
+```typescript
+// 从 atom.ts 重新导出，保持 API 兼容
+export type { Getter, Setter, SetStateAction } from './atom'
+
+// 类型提取工具
+export type ExtractAtomValue<AtomType> = AtomType extends Atom<infer Value>
+  ? Value
+  : never
+
+export type ExtractAtomArgs<AtomType> = AtomType extends WritableAtom<
+  unknown,
+  infer Args,
+  unknown
+>
+  ? Args
+  : never
+
+export type ExtractAtomResult<AtomType> = AtomType extends WritableAtom<
+  unknown,
+  unknown[],
+  infer Result
+>
+  ? Result
+  : never
+```
+
+| 类型 | 作用 | 示例 |
+|------|------|------|
+| `ExtractAtomValue` | 提取 atom 的值类型 | `Atom<number>` → `number` |
+| `ExtractAtomArgs` | 提取 write 参数类型 | `WritableAtom<number, [string], void>` → `[string]` |
+| `ExtractAtomResult` | 提取 write 返回类型 | `WritableAtom<number, [string], boolean>` → `boolean` |
 
 ---
 
@@ -382,6 +427,34 @@ store.set(countAtom, (prev) => prev + 1)
 - ✅ atom() 重载逻辑一致
 - ✅ defaultRead/defaultWrite 实现一致
 - ✅ 模块划分结构一致
+- ✅ **Getter/Setter 定义在 atom.ts 内部，避免循环引用**
+
+### 设计 4: 避免循环引用
+
+**问题**：如果 Getter 定义在 typeUtils.ts，会产生循环引用：
+```
+typeUtils.ts ──import──> atom.ts
+     │                      │
+     └── Getter 用 Atom <───┘ Atom 用 Getter
+```
+
+**解决方案**：将 Getter/Setter 定义在 atom.ts 内部
+```
+atom.ts (独立，无循环)
+   ├── type Getter = ...  ← 定义在这里
+   ├── type Setter = ...  ← 定义在这里
+   ├── interface Atom     ← 可以直接用 Getter
+   └── interface WritableAtom
+
+typeUtils.ts ──import──> atom.ts（单向依赖）
+   ├── export type { Getter, Setter } from './atom'  ← 重新导出
+   └── type ExtractAtomValue = ...
+```
+
+**为什么 `import type` 的循环引用也能工作？**
+- `import type` 在编译后被完全擦除
+- 类型检查是静态分析，不需要运行时
+- 但为了代码清晰，仍建议避免循环引用
 
 ### 简化点
 - 📦 暂未实现 Store（Day 2-4）
@@ -399,6 +472,7 @@ store.set(countAtom, (prev) => prev + 1)
 - [ ] `defaultWrite` 如何支持函数式更新
 - [ ] `WritableAtom<Value, Args, Result>` 三个泛型的作用
 - [ ] `SetSelf` 的作用和使用场景
+- [ ] **为什么 Getter/Setter 定义在 atom.ts 而不是单独文件**
 
 ### 可以尝试
 - [ ] 手写一个 primitive atom 的创建过程
@@ -439,9 +513,10 @@ type AtomState = {
 ## 🎓 学习建议
 
 ### 1. 阅读顺序
-1. 先看 `typeUtils.ts` - 理解类型系统
-2. 再看 `atom.ts` - 理解 atom 创建
-3. 对照原版 `src/vanilla/atom.ts` - 查看差异
+1. 先看 `atom.ts` 前半部分 - 理解 Getter/Setter/Atom 类型
+2. 再看 `atom.ts` 后半部分 - 理解 atom() 函数实现
+3. 最后看 `typeUtils.ts` - 理解类型提取工具
+4. 对照原版 `src/vanilla/atom.ts` - 查看差异
 
 ### 2. 调试技巧
 在浏览器控制台：
