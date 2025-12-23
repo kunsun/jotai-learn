@@ -418,52 +418,6 @@ store.set(countAtom, (prev) => prev + 1)
 // → set(countAtom, 计算后的新值)
 ```
 
----
-
-## 🔍 和原版 Jotai 的对比
-
-### 相同点
-- ✅ 类型定义完全一致
-- ✅ atom() 重载逻辑一致
-- ✅ defaultRead/defaultWrite 实现一致
-- ✅ 模块划分结构一致
-- ✅ **Getter/Setter 定义在 atom.ts 内部，避免循环引用**
-
-### 设计 4: 避免循环引用
-
-**问题**：如果 Getter 定义在 typeUtils.ts，会产生循环引用：
-```
-typeUtils.ts ──import──> atom.ts
-     │                      │
-     └── Getter 用 Atom <───┘ Atom 用 Getter
-```
-
-**解决方案**：将 Getter/Setter 定义在 atom.ts 内部
-```
-atom.ts (独立，无循环)
-   ├── type Getter = ...  ← 定义在这里
-   ├── type Setter = ...  ← 定义在这里
-   ├── interface Atom     ← 可以直接用 Getter
-   └── interface WritableAtom
-
-typeUtils.ts ──import──> atom.ts（单向依赖）
-   ├── export type { Getter, Setter } from './atom'  ← 重新导出
-   └── type ExtractAtomValue = ...
-```
-
-**为什么 `import type` 的循环引用也能工作？**
-- `import type` 在编译后被完全擦除
-- 类型检查是静态分析，不需要运行时
-- 但为了代码清晰，仍建议避免循环引用
-
-### 简化点
-- 📦 暂未实现 Store（Day 2-4）
-- 📦 暂未实现 React Hooks（Day 5）
-- 📦 暂未实现 BuildingBlocks 扩展机制
-- 📦 暂未实现 unstable_onInit 等边缘功能
-
----
-
 ## 📝 知识点检查
 
 ### 必须理解
